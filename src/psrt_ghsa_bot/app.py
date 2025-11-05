@@ -9,7 +9,6 @@ from cvelib.cve_api import CveApi
 from dotenv import load_dotenv
 from githubkit import AppAuthStrategy, GitHub
 
-# Load environment variables from .env file
 load_dotenv()
 
 if typing.TYPE_CHECKING:

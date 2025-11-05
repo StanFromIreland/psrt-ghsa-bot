@@ -21,7 +21,7 @@ type-check:  ## Run type-checking
 	@uv run ty check
 
 test:  ## Run tests
-	@uv run pytest test_app.py
+	@uv run pytest
 
 ci: lint fmt type-check test  ## Run everything
 

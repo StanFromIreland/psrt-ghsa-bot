@@ -1,8 +1,9 @@
 import datetime
 from unittest import mock
 
-import app
 import pytest
+
+from psrt_ghsa_bot import app
 
 
 @pytest.fixture
@@ -50,7 +51,7 @@ def test_adds_psrt_github_team_to_security_advisories(state) -> None:
     github = mock.Mock()
     cve_api = mock.Mock()
 
-    with mock.patch("app.get_repository_advisories") as get_repo_advs:
+    with mock.patch("psrt_ghsa_bot.app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
         app.apply_to_repo(github, "owner", "repo", cve_api)
@@ -74,7 +75,7 @@ def test_appends_psrt_github_team_to_security_advisories(state) -> None:
     github = mock.Mock()
     cve_api = mock.Mock()
 
-    with mock.patch("app.get_repository_advisories") as get_repo_advs:
+    with mock.patch("psrt_ghsa_bot.app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
         app.apply_to_repo(github, "owner", "repo", cve_api)
@@ -94,7 +95,7 @@ def test_does_not_modify_completed_security_advisories(state) -> None:
     github = mock.Mock()
     cve_api = mock.Mock()
 
-    with mock.patch("app.get_repository_advisories") as get_repo_advs:
+    with mock.patch("psrt_ghsa_bot.app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
         app.apply_to_repo(github, "owner", "repo", cve_api)
@@ -113,7 +114,7 @@ def test_reserves_cve_id_for_draft_security_advisories(
     cve_api = mock.Mock()
     cve_api.reserve.return_value = cve_reserve_response
 
-    with mock.patch("app.get_repository_advisories") as get_repo_advs:
+    with mock.patch("psrt_ghsa_bot.app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
         app.apply_to_repo(github, "owner", "repo", cve_api)
@@ -134,7 +135,7 @@ def test_does_not_reserve_cve_id_for_triage_security_advisories(state) -> None:
     github = mock.Mock()
     cve_api = mock.Mock()
 
-    with mock.patch("app.get_repository_advisories") as get_repo_advs:
+    with mock.patch("psrt_ghsa_bot.app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
         app.apply_to_repo(github, "owner", "repo", cve_api)
