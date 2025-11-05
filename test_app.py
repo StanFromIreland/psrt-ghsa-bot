@@ -1,18 +1,17 @@
 import datetime
-
-import mock
-import pytest
+from unittest import mock
 
 import app
+import pytest
 
 
-@pytest.fixture()
+@pytest.fixture
 def year() -> str:
     return str(datetime.date.today().year)
 
 
 @pytest.fixture
-def cve_id(year):
+def cve_id(year) -> str:
     return f"CVE-{year}-0000"
 
 
@@ -29,126 +28,131 @@ def cve_reserve_response(cve_id, year):
                 "state": "RESERVED",
                 "requested_by": {"cna": "PSF", "user": "cna@python.org"},
                 "requested": "2024-01-01T00:00:00Z",
-            }
+            },
         ],
     }
 
 
-@pytest.mark.parametrize("state", ["draft", "triage"])
-def test_adds_psrt_github_team_to_security_advisories(state):
-    security_advisory = mock.Mock()
-    security_advisory.state = state
-    security_advisory.cve_id = "CVE-0000-0000"
-    security_advisory.collaborating_teams = []
+def _create_advisory_dict(state, cve_id, collaborating_teams):
+    """Helper to create a security advisory dictionary."""
+    return {
+        "ghsa_id": "GHSA-xxxx-xxxx-xxxx",
+        "state": state,
+        "cve_id": cve_id,
+        "collaborating_teams": [{"slug": team} for team in collaborating_teams],
+    }
 
-    repo = mock.Mock()
+
+@pytest.mark.parametrize("state", ["draft", "triage"])
+def test_adds_psrt_github_team_to_security_advisories(state) -> None:
+    security_advisory = _create_advisory_dict(state, "CVE-0000-0000", [])
+
+    github = mock.Mock()
     cve_api = mock.Mock()
 
     with mock.patch("app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
-        app.apply_to_repo(repo, cve_api)
+        app.apply_to_repo(github, "owner", "repo", cve_api)
 
-    security_advisory.edit.assert_called_once_with(collaborating_teams=["python/psrt"])
-
-
-@pytest.mark.parametrize("state", ["draft", "triage"])
-def test_appends_psrt_github_team_to_security_advisories(state):
-    security_advisory = mock.Mock()
-    security_advisory.state = state
-    security_advisory.cve_id = "CVE-0000-0000"
-    security_advisory.collaborating_teams = ["python/other-team"]
-
-    repo = mock.Mock()
-    cve_api = mock.Mock()
-
-    with mock.patch("app.get_repository_advisories") as get_repo_advs:
-        get_repo_advs.return_value = [security_advisory]
-
-        app.apply_to_repo(repo, cve_api)
-
-    security_advisory.edit.assert_called_once_with(
-        collaborating_teams=["python/psrt", "python/other-team"]
+    github.rest.security_advisories.update_repository_advisory.assert_called_once_with(
+        owner="owner",
+        repo="repo",
+        ghsa_id="GHSA-xxxx-xxxx-xxxx",
+        data={"collaborating_teams": ["psrt"]},
     )
 
 
 @pytest.mark.parametrize("state", ["draft", "triage"])
-def test_adds_psrt_github_team_to_security_advisories(state):
-    security_advisory = mock.Mock()
-    security_advisory.state = state
-    security_advisory.cve_id = "CVE-0000-0000"
-    security_advisory.collaborating_teams = []
+def test_appends_psrt_github_team_to_security_advisories(state) -> None:
+    security_advisory = _create_advisory_dict(
+        state,
+        "CVE-0000-0000",
+        ["python/other-team"],
+    )
 
-    repo = mock.Mock()
+    github = mock.Mock()
     cve_api = mock.Mock()
 
     with mock.patch("app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
-        app.apply_to_repo(repo, cve_api)
+        app.apply_to_repo(github, "owner", "repo", cve_api)
 
-    security_advisory.edit.assert_called_once_with(collaborating_teams=["python/psrt"])
+    github.rest.security_advisories.update_repository_advisory.assert_called_once_with(
+        owner="owner",
+        repo="repo",
+        ghsa_id="GHSA-xxxx-xxxx-xxxx",
+        data={"collaborating_teams": ["psrt"]},
+    )
 
 
 @pytest.mark.parametrize("state", ["closed", "published"])
-def test_does_not_modify_completed_security_advisories(state):
-    security_advisory = mock.Mock()
-    security_advisory.state = state
-    security_advisory.cve_id = None
-    security_advisory.collaborating_teams = []
+def test_does_not_modify_completed_security_advisories(state) -> None:
+    security_advisory = _create_advisory_dict(state, None, [])
 
-    repo = mock.Mock()
+    github = mock.Mock()
     cve_api = mock.Mock()
 
     with mock.patch("app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
-        app.apply_to_repo(repo, cve_api)
+        app.apply_to_repo(github, "owner", "repo", cve_api)
 
-    security_advisory.edit.assert_not_called()
+    github.rest.security_advisories.update_repository_advisory.assert_not_called()
 
 
 def test_reserves_cve_id_for_draft_security_advisories(
-    year, cve_id, cve_reserve_response
-):
-    security_advisory = mock.Mock()
-    security_advisory.state = "draft"
-    security_advisory.cve_id = None
-    security_advisory.collaborating_teams = ["python/psrt"]
+    year,
+    cve_id,
+    cve_reserve_response,
+) -> None:
+    security_advisory = _create_advisory_dict("draft", None, ["psrt"])
 
-    repo = mock.Mock()
+    github = mock.Mock()
     cve_api = mock.Mock()
     cve_api.reserve.return_value = cve_reserve_response
 
     with mock.patch("app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
-        app.apply_to_repo(repo, cve_api)
+        app.apply_to_repo(github, "owner", "repo", cve_api)
 
     cve_api.reserve.assert_called_with(count=1, year=year, random=True)
-    security_advisory.edit.assert_called_once_with(cve_id=cve_id)
+    github.rest.security_advisories.update_repository_advisory.assert_called_once_with(
+        owner="owner",
+        repo="repo",
+        ghsa_id="GHSA-xxxx-xxxx-xxxx",
+        data={"cve_id": cve_id, "collaborating_teams": ["psrt"]},
+    )
 
 
 @pytest.mark.parametrize("state", ["triage", "closed", "published"])
-def test_does_not_reserve_cve_id_for_triage_security_advisories(state):
-    security_advisory = mock.Mock()
-    security_advisory.state = state
-    security_advisory.cve_id = None
-    security_advisory.collaborating_teams = ["python/psrt"]
+def test_does_not_reserve_cve_id_for_triage_security_advisories(state) -> None:
+    security_advisory = _create_advisory_dict(state, None, ["psrt"])
 
-    repo = mock.Mock()
+    github = mock.Mock()
     cve_api = mock.Mock()
 
     with mock.patch("app.get_repository_advisories") as get_repo_advs:
         get_repo_advs.return_value = [security_advisory]
 
-        app.apply_to_repo(repo, cve_api)
+        app.apply_to_repo(github, "owner", "repo", cve_api)
 
     cve_api.reserve.assert_not_called()
-    security_advisory.edit.assert_not_called()
+    # Triage state should still add team
+    if state == "triage":
+        github.rest.security_advisories.update_repository_advisory.assert_called_once_with(
+            owner="owner",
+            repo="repo",
+            ghsa_id="GHSA-xxxx-xxxx-xxxx",
+            data={"collaborating_teams": ["psrt"]},
+        )
+    else:
+        github.rest.security_advisories.update_repository_advisory.assert_not_called()
 
 
-def test_reserve_one_cve_id(cve_reserve_response, cve_id, year):
+def test_reserve_one_cve_id(cve_reserve_response, cve_id, year) -> None:
     cve_api = mock.Mock()
     cve_api.reserve.return_value = cve_reserve_response
 
