@@ -160,8 +160,20 @@ def main() -> None:
     print("Fetching PSRT members from Developer Guide...")
     psrt_members_devguide = load_psrt_members_from_devguide()
 
+    installation_id_raw = os.environ.get("GITHUB_INSTALLATION_ID")
+    if not installation_id_raw:
+        raise RuntimeError("GITHUB_INSTALLATION_ID environment variable must be set to the GitHub App installation ID")
+    try:
+        installation_id = int(installation_id_raw)
+    except ValueError:
+        raise RuntimeError(
+            f"GITHUB_INSTALLATION_ID must be a valid integer, got: {installation_id_raw!r}"
+        ) from None
+
     print("Fetching PSRT members from GitHub Team...")
-    psrt_members_github = load_psrt_members_from_github(github)
+    psrt_members_github = load_psrt_members_from_github(
+        github.with_auth(github.auth.as_installation(installation_id))
+    )
 
     # Determine which PSRT members need to be added as
     # 'collaborating_users' to advisories due to not being
